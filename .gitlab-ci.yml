@@ -1,0 +1,49 @@
+stages:
+  - test
+
+pytest:
+  stage: test
+  image: python:3.13-slim
+
+  services:
+    - name: postgres:17
+      alias: postgres
+
+  variables:
+    POSTGRES_DB: platformforge_test
+    POSTGRES_USER: platformforge
+    POSTGRES_PASSWORD: ci_test_password
+    DATABASE_URL: "postgresql+psycopg://platformforge:ci_test_password@postgres:5432/platformforge_test"
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+  before_script:
+    - cd services/platform-api
+    - python -m pip install ".[dev]"
+    - |
+      python - <<'PY'
+      import os
+      import time
+      import psycopg
+
+      database_url = os.environ["DATABASE_URL"].replace(
+          "postgresql+psycopg://",
+          "postgresql://",
+          1,
+      )
+
+      for attempt in range(30):
+          try:
+              with psycopg.connect(database_url, connect_timeout=2):
+                  print("PostgreSQL is ready")
+              break
+          except psycopg.OperationalError:
+              print(f"Waiting for PostgreSQL ({attempt + 1}/30)")
+              time.sleep(2)
+      else:
+          raise SystemExit("PostgreSQL did not become ready")
+      PY
+  
+
+  script:
+    - python -m alembic upgrade head
+    - python -m pytest -q
