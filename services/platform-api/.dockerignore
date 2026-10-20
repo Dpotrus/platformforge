@@ -1,0 +1,56 @@
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Static analysis and type checking
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+
+# Git metadata
+.git/
+.gitignore
+
+# Local logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Documentation and local tests
+tests/
+README.md
