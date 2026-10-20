@@ -1,13 +1,11 @@
-import os
 from collections.abc import Iterator
-from functools import lru_cache
 from threading import Lock
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
-DATABASE_URL_ENV_VAR = "DATABASE_URL"
+from app.config import get_settings
 
 _database_resources: dict[
     str,
@@ -17,15 +15,7 @@ _database_resources: dict[
 _database_resources_lock = Lock()
 
 def get_database_url() -> str:
-    database_url = os.getenv(DATABASE_URL_ENV_VAR)
-
-    if not database_url:
-        raise RuntimeError(f"{DATABASE_URL_ENV_VAR} environment variable is not set")
-
-    if not database_url.startswith("postgresql+psycopg://"):
-        raise ValueError("DATABASE_URL must use the postgresql+psycopg:// dialect")
-
-    return database_url
+    return get_settings().database_url
 
 def create_database_engine(database_url: str) -> Engine:
     return create_engine(database_url, pool_pre_ping=True)

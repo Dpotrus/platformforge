@@ -1,9 +1,12 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status, HTTPException
+from sqlalchemy.orm import Session
 
+from app.db.session import get_db_session
+from app.db.unit_of_work import UnitOfWork
 from app.domain.application import Application
-from app.repositories.application_repository import ApplicationRepository
+from app.repositories.postgres_application_repository import PostgresApplicationRepository
 from app.schemas.application import ApplicationResponse, ApplicationCreate
 from app.services.application_service import ApplicationService
 
@@ -12,15 +15,14 @@ router = APIRouter(
     tags=["Applications"],
 )
 
-_repository = ApplicationRepository()
+
+def get_application_repository(session: Annotated[Session, Depends(get_db_session)]) -> PostgresApplicationRepository:
+    return PostgresApplicationRepository(session)
 
 
-def get_application_repository() -> ApplicationRepository:
-    return _repository
-
-
-def get_application_service(repository: Annotated[ApplicationRepository, Depends(get_application_repository)]) -> ApplicationService:
-    return ApplicationService(repository)
+def get_application_service(repository: Annotated[PostgresApplicationRepository, Depends(get_application_repository)],
+                            session: Annotated[Session, Depends(get_db_session)]) -> ApplicationService:
+    return ApplicationService(repository=repository, unit_of_work=UnitOfWork(session))
 
 
 def to_application_response(application: Application) -> ApplicationResponse:

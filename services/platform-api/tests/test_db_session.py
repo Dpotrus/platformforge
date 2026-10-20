@@ -1,11 +1,20 @@
-from unittest.mock import patch, MagicMock
+
+from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
-from app.db.session import get_database_url, create_database_engine, create_session_factory, get_db_session, \
-    get_database_resources, dispose_database_resources
+from app.config import Settings, get_settings
+from app.db.session import (
+    create_database_engine,
+    create_session_factory,
+    dispose_database_resources,
+    get_database_resources,
+    get_database_url,
+    get_db_session,
+)
 
 TEST_DATABASE_URL = (
     "postgresql+psycopg://"
@@ -20,20 +29,36 @@ SECOND_DATABASE_URL = (
 
 @pytest.fixture(autouse=True)
 def clean_database_resources():
+    get_settings.cache_clear()
     dispose_database_resources()
+
     yield
+
     dispose_database_resources()
+    get_settings.cache_clear()
+
 
 
 def test_get_database_url_returns_environment_variable():
-    with patch.dict("os.environ", {"DATABASE_URL": TEST_DATABASE_URL}):
+    with patch.dict(
+            "os.environ",
+            {"DATABASE_URL": TEST_DATABASE_URL},
+    ):
         assert get_database_url() == TEST_DATABASE_URL
+
 
 
 def test_get_database_url_raises_when_missing():
     with patch.dict("os.environ", {}, clear=True):
-        with pytest.raises(RuntimeError, match="DATABASE_URL environment variable is not set"):
-            get_database_url()
+        with patch(
+                "app.db.session.get_settings",
+                side_effect=lambda: Settings(_env_file=None),
+        ):
+            with pytest.raises(
+                    ValidationError,
+                    match="database_url",
+            ):
+                get_database_url()
 
 
 @pytest.mark.parametrize(
@@ -45,9 +70,15 @@ def test_get_database_url_raises_when_missing():
         "invalid-url",
     ],
 )
-def test_get_database_url_rejects_invalid_dialect(invalid_url: str):
-    with patch.dict("os.environ", {"DATABASE_URL": invalid_url}):
-        with pytest.raises(ValueError, match="DATABASE_URL must use the postgresql"):
+def test_get_database_url_rejects_invalid_dialect(invalid_url: str,):
+    with patch.dict(
+            "os.environ",
+            {"DATABASE_URL": invalid_url},
+    ):
+        with pytest.raises(
+                ValidationError,
+                match="database_url",
+        ):
             get_database_url()
 
 
