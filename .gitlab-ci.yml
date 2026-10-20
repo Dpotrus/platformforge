@@ -46,4 +46,12 @@ pytest:
 
   script:
     - python -m alembic upgrade head
-    - python -m pytest -q
+    - python -m pytest -q --junitxml=test-results.xml
+
+  artifacts:
+    when: always
+    reports:
+      junit: services/platform-api/test-results.xml
+    paths:
+      - services/platform-api/test-results.xml
+    expire_in: 7 days
