@@ -25,5 +25,25 @@ services:
       retries: 10
       start_period: 10s
 
+  api:
+    build:
+      context: ./services/platform-api
+      dockerfile: Dockerfile
+
+    image: platformforge-api:dev
+    container_name: platformforge-api
+    restart: unless-stopped
+
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+psycopg://platformforge:platformforge_dev_password@postgres:5432/platformforge
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:

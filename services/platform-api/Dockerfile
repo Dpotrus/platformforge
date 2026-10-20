@@ -12,10 +12,9 @@ RUN groupadd --system platformforge \
         platformforge
 
 COPY pyproject.toml ./pyproject.toml
+COPY app ./app
 
 RUN python -m pip install --no-cache-dir .
-
-COPY app ./app
 
 USER platformforge
 
