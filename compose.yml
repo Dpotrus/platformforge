@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: platformforge
       POSTGRES_USER: platformforge
-      POSTGRES_PASSWORD: platformforge_dev_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
 
     ports:
       - "127.0.0.1:5432:5432"
@@ -36,7 +36,7 @@ services:
 
     environment:
       ENVIRONMENT: development
-      DATABASE_URL: postgresql+psycopg://platformforge:platformforge_dev_password@postgres:5432/platformforge
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
 
     ports:
       - "127.0.0.1:8000:8000"
