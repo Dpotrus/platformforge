@@ -1,5 +1,6 @@
 stages:
   - test
+  - build
 
 pytest:
   stage: test
@@ -55,3 +56,20 @@ pytest:
     paths:
       - services/platform-api/test-results.xml
     expire_in: 7 days
+
+docker-build:
+  stage: build
+  image: docker:27-cli
+
+  services:
+    - name: docker:27-dind
+      alias: docker
+
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+
+  script:
+    - docker info
+    - docker build --tag platformforge-api:${CI_COMMIT_SHORT_SHA} services/platform-api
+    - docker image inspect platformforge-api:${CI_COMMIT_SHORT_SHA}
