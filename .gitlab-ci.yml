@@ -62,6 +62,11 @@ docker-build:
   stage: build
   image: docker:27-cli
 
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: on_success
+    - when: never
+
   services:
     - name: docker:27-dind
       alias: docker
