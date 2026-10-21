@@ -57,6 +57,7 @@ pytest:
       - services/platform-api/test-results.xml
     expire_in: 7 days
 
+
 docker-build:
   stage: build
   image: docker:27-cli
@@ -70,6 +71,10 @@ docker-build:
     DOCKER_TLS_CERTDIR: ""
 
   script:
-    - docker info
-    - docker build --tag platformforge-api:${CI_COMMIT_SHORT_SHA} services/platform-api
-    - docker image inspect platformforge-api:${CI_COMMIT_SHORT_SHA}
+    - echo "Logging in to GitLab Container Registry"
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
+    - echo "Building PlatformForge API image"
+    - docker build --tag "$CI_REGISTRY_IMAGE/platform-api:$CI_COMMIT_SHA" services/platform-api
+    - docker image inspect "$CI_REGISTRY_IMAGE/platform-api:$CI_COMMIT_SHA"
+    - echo "Pushing PlatformForge API image"
+    - docker push "$CI_REGISTRY_IMAGE/platform-api:$CI_COMMIT_SHA"
