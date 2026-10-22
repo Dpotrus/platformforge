@@ -74,6 +74,24 @@ pytest:
       - services/platform-api/test-results.xml
     expire_in: 7 days
 
+helm-lint:
+  stage: test
+  image:
+    name: alpine/helm:4.3.1
+    entrypoint: [""]
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+  script:
+    - echo "Validating PlatformForge Helm chart"
+    - helm version --short
+    - helm lint infrastructure/helm/platform-api -f infrastructure/helm/platform-api/values-kind.yaml
+    - echo "Rendering Kubernetes manifests"
+    - helm template platform-api infrastructure/helm/platform-api --namespace platformforge -f infrastructure/helm/platform-api/values-kind.yaml > /tmp/platform-api-rendered.yaml
+    - test -s /tmp/platform-api-rendered.yaml
+    - echo "Helm chart validation completed"
 
 docker-build:
   stage: build
