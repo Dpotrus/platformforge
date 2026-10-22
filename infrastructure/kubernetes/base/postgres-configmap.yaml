@@ -1,0 +1,14 @@
+
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: postgres-config
+  namespace: platformforge
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: platformforge
+
+data:
+  POSTGRES_DB: "platformforge"
+  POSTGRES_USER: "platformforge"
