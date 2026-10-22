@@ -16,6 +16,10 @@ COPY app ./app
 
 RUN python -m pip install --no-cache-dir .
 
+# Include Alembic configuration and migration scripts.
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic
+
 USER platformforge
 
 EXPOSE 8000
