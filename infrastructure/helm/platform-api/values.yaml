@@ -1,0 +1,50 @@
+# PlatformForge API - Helm default values
+
+replicaCount: 1
+
+image:
+  repository: registry.gitlab.com/daxthetax/platformforge/platform-api
+  tag: "496739e2b7f7bbe41cd90b220091e55f329dd7f5"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: gitlab-registry
+
+service:
+  type: ClusterIP
+  port: 8000
+
+containerPort: 8000
+
+environment: development
+
+database:
+  existingSecret: platform-api-db
+  secretKey: DATABASE_URL
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  startup:
+    path: /health
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 12
+
+  readiness:
+    path: /health
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 3
+
+  liveness:
+    path: /health
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    failureThreshold: 3

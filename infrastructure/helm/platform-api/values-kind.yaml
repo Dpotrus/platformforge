@@ -1,0 +1,19 @@
+# PlatformForge API - local kind environment
+
+replicaCount: 1
+
+environment: development
+
+image:
+  tag: "496739e2b7f7bbe41cd90b220091e55f329dd7f5"
+
+imagePullSecrets:
+  - name: gitlab-registry
+
+database:
+  existingSecret: platform-api-db
+  secretKey: DATABASE_URL
+
+service:
+  type: ClusterIP
+  port: 8000
