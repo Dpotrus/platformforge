@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-api
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://gitlab.com/DaxTheTax/platformforge.git
+    targetRevision: main
+    path: infrastructure/helm/platform-api
+    helm:
+      releaseName: platform-api
+      valueFiles:
+        - values-kind.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platformforge
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false
