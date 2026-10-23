@@ -21,3 +21,6 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local Kubernetes and Helm backups
+.local-backups/
