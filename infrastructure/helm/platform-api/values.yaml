@@ -48,3 +48,8 @@ probes:
     initialDelaySeconds: 0
     periodSeconds: 10
     failureThreshold: 3
+
+# Alembic database migrations
+migration:
+  enabled: true
+  backoffLimit: 2

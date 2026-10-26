@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - platform-api.yaml
+  - postgres.yaml
+
+configMapGenerator:
+  - name: platformforge-gitops-config
+    namespace: argocd
+    literals:
+      - revision=main
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: platformforge-gitops-config
+      fieldPath: data.revision
+    targets:
+      - select:
+          group: argoproj.io
+          version: v1alpha1
+          kind: Application
+        fieldPaths:
+          - spec.source.targetRevision
