@@ -22,8 +22,5 @@ spec:
     namespace: platformforge
 
   syncPolicy:
-    automated:
-      selfHeal: true
-      prune: false
     syncOptions:
       - CreateNamespace=false

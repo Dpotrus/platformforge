@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: platformforge-postgres
+  namespace: argocd
+
+spec:
+  project: default
+
+  source:
+    repoURL: https://gitlab.com/DaxTheTax/platformforge.git
+    targetRevision: main
+    path: infrastructure/kubernetes/postgres
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platformforge
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false
+      - PruneLast=true
