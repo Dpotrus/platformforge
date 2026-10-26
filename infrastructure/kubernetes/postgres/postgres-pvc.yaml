@@ -1,0 +1,22 @@
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: postgres-data
+  namespace: platformforge
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: platformforge
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+
+  storageClassName: standard
+
+  resources:
+    requests:
+      storage: 2Gi
