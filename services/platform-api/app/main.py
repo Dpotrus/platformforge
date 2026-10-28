@@ -11,6 +11,9 @@ from app.exceptions import (
     ApplicationStorageError,
     ApplicationStorageUnavailable,
 )
+from app.observability.middleware import PrometheusMetricsMiddleware
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(PrometheusMetricsMiddleware)
 
 @app.exception_handler(ApplicationStorageUnavailable)
 async def handle_storage_unavailable(
@@ -72,3 +77,10 @@ def health_check() -> dict[str, str]:
         "status": "healthy",
         "service": "platformforge-api",
     }
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
