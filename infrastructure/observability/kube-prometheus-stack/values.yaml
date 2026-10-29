@@ -1,0 +1,64 @@
+# PlatformForge - Kubernetes Observability
+# Local kind development environment
+
+# Grafana
+grafana:
+  enabled: true
+
+  adminUser: admin
+
+  # Use an externally managed Kubernetes Secret.
+  # The Secret must exist in the monitoring namespace.
+  admin:
+    existingSecret: grafana-admin-credentials
+    userKey: admin-user
+    passwordKey: admin-password
+
+  persistence:
+    enabled: false
+
+  service:
+    type: ClusterIP
+
+# Prometheus
+prometheus:
+  enabled: true
+
+  prometheusSpec:
+    retention: 2d
+
+    # Keep resource usage low in our local kind cluster.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+    # Initially use ephemeral storage in the isolated lab cluster.
+    storageSpec:
+      emptyDir:
+        sizeLimit: 2Gi
+
+    # Allow ServiceMonitors from other namespaces.
+    serviceMonitorNamespaceSelector: {}
+
+    # Allow ServiceMonitors without requiring a Helm release label.
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+# Alertmanager
+alertmanager:
+  enabled: false
+
+# Reduce unnecessary components in our local kind lab.
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false

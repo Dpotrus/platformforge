@@ -1,0 +1,14 @@
+# Overrides for the isolated observability kind cluster.
+
+image:
+  repository: platformforge-api
+  tag: dev
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  scrapeTimeout: 10s
+  path: /metrics

@@ -4,7 +4,7 @@ This directory contains the Kubernetes, Helm, kind, GitOps, and bootstrap automa
 
 The infrastructure is designed to demonstrate practical platform engineering concepts, including declarative deployments, persistent storage, database lifecycle management, deployment orchestration, and reproducible Kubernetes environments.
 
-**Current status:** Local Kubernetes deployment, Helm packaging, Argo CD App-of-Apps integration, PostgreSQL GitOps management, Alembic PreSync migrations, and automated kind bootstrap have been implemented and verified.
+**Current status:** Local Kubernetes deployment, Helm packaging, Argo CD App-of-Apps integration, PostgreSQL GitOps management, Alembic PreSync migrations, automated kind bootstrap, and Kubernetes observability with Prometheus and Grafana have been implemented and verified.
 
 ## Architecture
 
@@ -114,7 +114,9 @@ infrastructure/
 | `helm/platform-api/` | Helm chart for the FastAPI application |
 | `gitops/root.yaml` | Root Argo CD Application bootstrap manifest |
 | `gitops/applications/` | Child Argo CD Applications and revision configuration |
-| `scripts/` | Infrastructure bootstrap automation |
+| `scripts/` | Infrastructure bootstrap and observability automation |
+| `kind/observability/` | Dedicated kind cluster configuration for Kubernetes observability |
+| `observability/` | kube-prometheus-stack configuration and Kubernetes observability documentation |
 
 The standalone manifests under `kubernetes/base/` are retained for development and reference.
 
@@ -259,25 +261,38 @@ spec.source.targetRevision
 
 for the child Applications.
 
-This allows the current integration tests to use the isolated `bootstrap-test` branch instead of deploying child Applications from `main`.
+During the original GitOps integration tests, this configuration allowed
+the isolated `bootstrap-test` branch to be used instead of `main`.
+
+The integration changes were subsequently merged through
+`merge-preparation` into `main`.
+
+The current revision configuration must be verified against the
+GitOps manifests before deploying or modifying existing environments.
 
 The bootstrap script also verifies that the requested GitOps revision is published to GitLab before installation.
 
-### Important Branch Safety
+### GitOps Integration History
 
-The current GitOps integration work is performed on:
+The GitOps bootstrap implementation was initially developed and verified
+using the `bootstrap-test` integration branch.
 
-```text
-bootstrap-test
-```
+The changes were subsequently integrated into the `merge-preparation`
+branch and merged into `main`.
 
-This is a temporary integration and verification branch.
+The original integration workflow and its verification results are retained
+in this documentation for historical reference.
 
-The original PlatformForge cluster follows `main`.
+The `bootstrap-test` revision shown in the examples below represents
+the revision used during the original integration tests. It is not a
+requirement for future deployments.
 
-Changes must not be merged into `main` without reviewing the resulting Argo CD synchronization behavior.
+Before deploying changes to existing environments, review the target
+Git revision and the synchronization policies of the affected Argo CD
+Applications.
 
-Before merging, the hardcoded integration revision in the Kustomize configuration must be reviewed and replaced with the intended long-term revision strategy.
+Changes must not be pushed or merged into branches monitored by active
+GitOps environments without reviewing their potential impact.
 
 ## Automated Kubernetes Bootstrap
 
@@ -851,14 +866,74 @@ Verified outcomes:
 
 These results establish a verified baseline for future infrastructure development.
 
+## Kubernetes Observability
+
+PlatformForge includes a dedicated Kubernetes observability environment
+running in an isolated kind cluster.
+
+The environment uses:
+
+- Prometheus Operator
+- Prometheus
+- Grafana
+- Kubernetes ServiceMonitor
+- PlatformForge API Prometheus metrics
+- Grafana Dashboard as Code
+
+The observability cluster uses the Kubernetes context:
+
+`kind-platformforge-observability`
+
+The monitoring stack is installed using the
+`kube-prometheus-stack` Helm chart, version `92.14.1`.
+
+The PlatformForge API is deployed using its Helm chart with
+observability-specific values.
+
+Prometheus discovers the API through a ServiceMonitor and
+collects HTTP request metrics from `/metrics`.
+
+Grafana dashboards are provisioned through a labeled Kubernetes
+ConfigMap using the PowerShell script:
+
+`infrastructure/scripts/install-observability-dashboard.ps1`
+
+The dashboard JSON is shared with the local Docker Compose
+observability environment.
+
+### Documentation
+
+For Kubernetes observability installation and verification:
+
+`infrastructure/observability/README.md`
+
+For local Docker Compose observability:
+
+`observability/README.md`
+
+### Environment Isolation
+
+The observability cluster is separate from the existing
+PlatformForge GitOps clusters.
+
+All Kubernetes and Helm commands must explicitly target the
+intended context.
+
+Existing PostgreSQL persistent volumes must not be deleted
+or recreated during routine operations.
+
+The Kubernetes observability environment is currently managed
+through Helm and Kubernetes commands rather than Argo CD.
+
 ## Future Improvements
 
 The next infrastructure priorities are:
 
-1. Review and safely integrate the GitOps changes into `main`.
+1. Review and maintain the GitOps configuration integrated into `main`.
 2. Improve CI/CD-to-GitOps container image promotion.
 3. Strengthen Kubernetes reliability and recovery procedures.
-4. Introduce observability with metrics, logging, tracing, and alerting.
+4. Extend the existing Prometheus and Grafana observability implementation
+   with distributed tracing, centralized logging, and alerting.
 5. Improve secrets management and security controls.
 6. Implement database backup and restore procedures.
 7. Extend infrastructure automation and operational testing.
