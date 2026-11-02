@@ -37,6 +37,9 @@ services:
     environment:
       ENVIRONMENT: development
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_SERVICE_NAME: platformforge-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
 
     ports:
       - "127.0.0.1:8000:8000"
