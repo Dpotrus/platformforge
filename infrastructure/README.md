@@ -4,7 +4,7 @@ This directory contains the Kubernetes, Helm, kind, GitOps, and bootstrap automa
 
 The infrastructure is designed to demonstrate practical platform engineering concepts, including declarative deployments, persistent storage, database lifecycle management, deployment orchestration, and reproducible Kubernetes environments.
 
-**Current status:** Local Kubernetes deployment, Helm packaging, Argo CD App-of-Apps integration, PostgreSQL GitOps management, Alembic PreSync migrations, automated kind bootstrap, and Kubernetes observability with Prometheus and Grafana have been implemented and verified.
+**Current status:** Local Kubernetes deployment, Helm packaging, Argo CD App-of-Apps integration, PostgreSQL GitOps management, Alembic PreSync migrations, automated kind bootstrap, and Kubernetes metrics monitoring with Prometheus and Grafana have been implemented and verified. The separate Docker Compose observability environment also provides verified distributed tracing and centralized logging; these capabilities have not been verified in the Kubernetes observability cluster.
 
 ## Architecture
 
@@ -232,7 +232,7 @@ The child Application definitions contain:
 targetRevision: main
 ```
 
-However, the current integration branch uses Kustomize to override this value.
+During the original integration work, Kustomize was used to override this value for an isolated test branch. The GitOps changes were later merged into `main`; the effective revision in the current checkout must be checked before deployment.
 
 The configuration is defined in:
 
@@ -240,7 +240,7 @@ The configuration is defined in:
 infrastructure/gitops/applications/kustomization.yaml
 ```
 
-The current integration configuration contains:
+The original integration configuration contained (historical example, **not** a recommended current value):
 
 ```yaml
 configMapGenerator:
@@ -267,8 +267,7 @@ the isolated `bootstrap-test` branch to be used instead of `main`.
 The integration changes were subsequently merged through
 `merge-preparation` into `main`.
 
-The current revision configuration must be verified against the
-GitOps manifests before deploying or modifying existing environments.
+Do not infer the current effective revision from this historical example. Check `infrastructure/gitops/applications/kustomization.yaml` and the rendered manifests before deploying or modifying an environment. Also check the revision and sync policies of any already-installed Argo CD Applications.
 
 The bootstrap script also verifies that the requested GitOps revision is published to GitLab before installation.
 
@@ -901,15 +900,23 @@ ConfigMap using the PowerShell script:
 The dashboard JSON is shared with the local Docker Compose
 observability environment.
 
+**Environment capability boundary:** The dedicated Kubernetes observability cluster has been verified for metrics collection and Grafana dashboards. OpenTelemetry Collector, Tempo, Alloy, Loki, and Logs-to-Traces have been implemented and verified in the **local Docker Compose** environment, not in this Kubernetes monitoring cluster. Alertmanager is currently disabled in the Kubernetes monitoring values.
+
+The Kubernetes Grafana external administrator Secret configuration has been validated through Helm rendering, but that configuration has **not** been applied to the existing running observability cluster. See the Kubernetes observability README for the exact status and installation guidance.
+
 ### Documentation
 
 For Kubernetes observability installation and verification:
 
-`infrastructure/observability/README.md`
+[**Kubernetes observability README**](observability/README.md)
 
 For local Docker Compose observability:
 
-`observability/README.md`
+[**Local observability README**](../observability/README.md)
+
+For the project-wide roadmap:
+
+[**Project README**](../README.md)
 
 ### Environment Isolation
 
@@ -932,13 +939,14 @@ The next infrastructure priorities are:
 1. Review and maintain the GitOps configuration integrated into `main`.
 2. Improve CI/CD-to-GitOps container image promotion.
 3. Strengthen Kubernetes reliability and recovery procedures.
-4. Extend the existing Prometheus and Grafana observability implementation
-   with distributed tracing, centralized logging, and alerting.
-5. Improve secrets management and security controls.
-6. Implement database backup and restore procedures.
-7. Extend infrastructure automation and operational testing.
-8. Introduce Terraform-based AWS infrastructure provisioning.
-9. Deploy PlatformForge to Amazon EKS.
+4. Add and verify Kubernetes alerting (Prometheus rules and Alertmanager).
+5. Evaluate extending the **Kubernetes** observability environment with distributed tracing and centralized logging; these are already implemented in local Docker Compose.
+6. Improve secrets management and security controls.
+7. Implement database backup and restore procedures.
+8. Extend infrastructure automation and operational testing.
+9. Introduce GitOps management for the dedicated Kubernetes observability stack.
+10. Introduce Terraform-based AWS infrastructure provisioning.
+11. Deploy PlatformForge to Amazon EKS.
 
 The broader PlatformForge roadmap also includes gRPC, Kafka, Strimzi, and the transactional outbox pattern.
 

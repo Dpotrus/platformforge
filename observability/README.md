@@ -7,6 +7,8 @@ It provides:
 - **Prometheus** for application metrics collection.
 - **OpenTelemetry Collector** for receiving and processing distributed traces.
 - **Grafana Tempo** for storing and querying distributed traces.
+- **Grafana Alloy** for collecting application container logs.
+- **Grafana Loki** for storing and querying centralized logs.
 - **Grafana** for visualizing metrics and exploring traces.
 - **Docker Compose** for managing the local observability infrastructure.
 
@@ -16,10 +18,13 @@ For the Kubernetes observability environment, see `infrastructure/observability/
 
 ## Architecture
 
-PlatformForge supports two observability signals:
+PlatformForge supports three observability signals:
 
 1. **Metrics** — aggregated measurements of application behavior.
-2. **Distributed traces** — detailed information about individual requests and their database operations.
+2. **Logs** — structured records of application and request activity.
+3. **Distributed traces** — detailed information about individual requests and their database operations.
+
+The local Grafana installation correlates application logs with Tempo traces using trace identifiers.
 
 ### Metrics Architecture
 
@@ -85,6 +90,34 @@ The Collector can receive traces through both OTLP HTTP and OTLP gRPC.
 
 The current PlatformForge API uses OTLP HTTP.
 
+### Centralized Logging Architecture
+
+The PlatformForge API emits structured JSON logs, including request information and trace correlation fields when an active tracing context is available.
+
+The local logging pipeline is:
+
+```text
+PlatformForge API
+      |
+      | JSON container logs
+      v
+  Docker logging
+      |
+      v
+  Grafana Alloy
+      |
+      v
+   Grafana Loki
+      |
+      v
+ Grafana Explore
+ localhost:3000
+```
+
+Alloy discovers Docker containers, selects the PlatformForge API container, parses its JSON logs, and forwards them to Loki. Grafana provisions Loki as a datasource and uses a derived field to link a log entry's trace identifier to the matching trace in Tempo.
+
+**Scope:** This logging pipeline has been verified in the local Docker Compose environment. The separate Kubernetes observability cluster does not automatically inherit these components.
+
 ### Docker Networking
 
 The PlatformForge API and observability infrastructure are managed by separate Docker Compose projects.
@@ -120,6 +153,8 @@ The main application stack should be started before the observability stack when
 observability/
 ├── README.md
 ├── compose.yml
+├── alloy/
+│   └── config.alloy
 ├── collector/
 │   └── config.yaml
 ├── tempo/
@@ -129,6 +164,7 @@ observability/
 └── grafana/
     └── provisioning/
         ├── datasources/
+        │   ├── loki.yml
         │   └── tempo.yml
         └── dashboards/
             └── json/
@@ -192,7 +228,7 @@ Starting the main stack also ensures that the `platformforge_default` Docker net
 
 ## 2. Start the Observability Environment
 
-Start Prometheus, Grafana, OpenTelemetry Collector and Tempo:
+Start Prometheus, Grafana, OpenTelemetry Collector, Tempo, Loki, and Alloy:
 
 ```powershell
 docker compose -f .\observability\compose.yml up -d
@@ -214,8 +250,12 @@ The following services should be running:
 | OpenTelemetry Collector | 4318 | OTLP HTTP receiver |
 | OpenTelemetry Collector | 13133 | Collector health endpoint |
 | Grafana Tempo | 3200 | Tempo HTTP API |
+| Grafana Loki | Internal Compose networking | Log storage and querying |
+| Grafana Alloy | Docker integration | Container log collection |
 
-The OpenTelemetry Collector and Tempo run separately from the PlatformForge API.
+The OpenTelemetry Collector, Tempo, Loki, and Alloy run separately from the PlatformForge API.
+
+Alloy requires access to Docker container metadata and logs. Review its Docker permissions before reusing this configuration outside a trusted local development environment.
 
 ## 3. Verify Prometheus
 
@@ -562,6 +602,63 @@ PostgreSQL
 
 The verified implementation successfully produced this relationship.
 
+## Centralized Logging and Logs-to-Traces
+
+### Application JSON Logging
+
+Application logging is implemented in:
+
+```text
+services/platform-api/app/observability/logging.py
+services/platform-api/app/observability/request_logging.py
+```
+
+The logging configuration supports structured JSON output and request-level logging. When an OpenTelemetry span is active, trace and span identifiers can be included in the log record, allowing logs and traces to be correlated.
+
+### Grafana Alloy and Loki
+
+The Alloy configuration is located at:
+
+```text
+observability/alloy/config.alloy
+```
+
+Alloy discovers the PlatformForge API Docker container, parses JSON log records, and sends them to Loki. The local Grafana Loki datasource is provisioned from:
+
+```text
+observability/grafana/provisioning/datasources/loki.yml
+```
+
+### Verify Centralized Logs
+
+1. Start both Compose environments as described above.
+2. Generate application requests:
+
+   ```powershell
+   Invoke-RestMethod http://localhost:8000/api/v1/applications/
+   ```
+
+3. Open Grafana at `http://localhost:3000` and select **Explore**.
+4. Select the **Loki** datasource and inspect recent PlatformForge API logs. Use the available stream labels to filter the application container.
+5. Check that request log entries are structured and that trace identifiers are present for traced requests.
+
+To inspect the log pipeline without modifying containers:
+
+```powershell
+docker compose -f .\observability\compose.yml ps
+docker compose -f .\observability\compose.yml logs --tail 100 alloy
+docker compose -f .\observability\compose.yml logs --tail 100 loki
+```
+
+### Verify Logs-to-Traces
+
+1. Generate a request to `/api/v1/applications/` while tracing is enabled.
+2. In Grafana Explore, open the corresponding application log entry in **Loki**.
+3. Follow the trace link created by the configured Loki derived field.
+4. Verify that Grafana opens the corresponding trace in **Tempo**, showing the HTTP request and any instrumented database operations.
+
+This end-to-end correlation has been verified in the local environment. A log without an active trace context may not contain a usable trace identifier.
+
 ## 9. Tracing Lifecycle
 
 PlatformForge manages tracing through the FastAPI application lifecycle.
@@ -648,7 +745,7 @@ python -m pytest
 The completed tracing implementation was verified with:
 
 ```text
-197 passed
+206 passed
 ```
 
 This result was obtained after aligning the SQLAlchemy dependency with the supported OpenTelemetry instrumentation version.
@@ -690,7 +787,7 @@ The external `platformforge_default` network is managed by the main application 
 
 **Do not use `down -v` during routine operations.**
 
-Removing volumes can destroy stored Prometheus, Grafana and Tempo data.
+Removing volumes can destroy stored observability data, including Prometheus, Grafana, Tempo, and Loki data where persistent volumes are configured.
 
 The PlatformForge API and PostgreSQL are managed separately from the observability Compose project.
 
@@ -781,6 +878,22 @@ Check the API logs:
 docker compose logs api
 ```
 
+### No Application Logs in Loki
+
+Check that the API container is running and producing JSON logs. Confirm that Alloy is running, has access to the Docker container information it needs, and is selecting the PlatformForge API container.
+
+```powershell
+docker compose logs --tail 100 api
+docker compose -f .\observability\compose.yml logs --tail 100 alloy
+docker compose -f .\observability\compose.yml logs --tail 100 loki
+```
+
+Also verify the Loki datasource in Grafana and select a recent time range.
+
+### Missing Logs-to-Traces Link
+
+Confirm that tracing is enabled, the log entry contains a trace identifier, and Grafana's Loki datasource has its Tempo derived field configured. Verify that the matching trace is present in Tempo. Not every log entry is necessarily associated with a trace.
+
 ### SQLAlchemy Instrumentation Problems
 
 Verify the installed SQLAlchemy version:
@@ -857,15 +970,27 @@ The following functionality has been implemented and verified:
 - Automated instrumentation tests.
 - End-to-end verification in Grafana Explore.
 
+### Centralized Logging
+
+- Structured JSON application and request logs.
+- Trace and span correlation fields when tracing context is available.
+- Grafana Alloy Docker log collection.
+- Grafana Loki log storage and querying.
+- Grafana Loki datasource provisioning.
+- Grafana Logs-to-Traces navigation into Tempo.
+- End-to-end verification in the local Docker Compose environment.
+
 ### Verification
 
 The completed implementation has been verified through:
 
-- Automated Python tests: **197 passed**.
+- Automated Python tests: **206 passed**.
 - Running Docker Compose infrastructure.
 - Successful API requests against PostgreSQL.
 - Real SQLAlchemy instrumentation integration testing.
 - Distributed traces visible in Grafana Tempo.
+- Centralized application logs visible in Grafana Loki.
+- Log-to-trace navigation from Loki to Tempo.
 - Verified FastAPI SERVER and PostgreSQL CLIENT spans within the same trace.
 
 ### Future Improvements
@@ -873,9 +998,8 @@ The completed implementation has been verified through:
 Potential future improvements include:
 
 - Distributed tracing in Kubernetes.
-- Centralized application logging.
-- Correlation between logs and traces.
-- Alerting.
+- Centralized logging and tracing in the Kubernetes observability environment.
+- Prometheus alerting rules and Alertmanager integration.
 - Explicit trace retention policies.
 - More advanced Collector monitoring.
 - Production-oriented resource limits and healthchecks.

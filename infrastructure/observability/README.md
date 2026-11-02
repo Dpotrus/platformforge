@@ -6,6 +6,8 @@ The observability environment runs in a dedicated kind cluster, isolated from th
 
 The configuration is intended for local learning and development, not production deployment.
 
+**Scope:** This README documents the dedicated Kubernetes observability environment. The separate Docker Compose observability stack also provides OpenTelemetry tracing, Grafana Tempo, structured JSON logs, Grafana Alloy, Grafana Loki, and Logs-to-Traces correlation. Those capabilities have been verified locally but are **not documented as installed in this Kubernetes cluster**. See [`../../observability/README.md`](../../observability/README.md).
+
 ## Architecture
 
 The Kubernetes observability environment consists of:
@@ -18,6 +20,8 @@ The Kubernetes observability environment consists of:
 - **PostgreSQL 17** providing the application's database.
 
 The monitoring stack is installed using the `kube-prometheus-stack` Helm chart.
+
+This Kubernetes environment currently focuses on **metrics**. Centralized logging and distributed tracing are implemented in the separate local Docker Compose environment; extending them to Kubernetes remains future work.
 
 The PlatformForge API is installed using its own Helm chart with observability-specific overrides.
 
@@ -54,6 +58,7 @@ The observability installation uses files from several project directories:
 | `infrastructure/helm/platform-api/templates/servicemonitor.yaml` | Prometheus ServiceMonitor |
 | `infrastructure/scripts/install-observability-dashboard.ps1` | Grafana dashboard provisioning |
 | `observability/grafana/provisioning/dashboards/json/platformforge-api.json` | Shared Grafana dashboard definition |
+| `observability/README.md` | Separate local Docker Compose observability stack (metrics, logs, traces) |
 
 The Grafana dashboard JSON is shared between Docker Compose and Kubernetes.
 
@@ -237,7 +242,7 @@ The installation includes:
 - Grafana
 - Supporting monitoring components
 
-Alertmanager is disabled in the current local configuration.
+**Alertmanager is disabled** in the documented Kubernetes monitoring configuration. Prometheus alerting rules, routing, and notification delivery have not been verified for this environment.
 
 ### 2.5 Verify the Installation
 
@@ -688,6 +693,21 @@ The local Grafana administrator credentials must not be reused in production.
 
 A production deployment would require additional security controls, persistent storage, backup procedures and appropriate access restrictions.
 
+## Scope and Deployment Status
+
+The local Docker Compose observability stack and this Kubernetes environment are independent:
+
+| Capability | Local Docker Compose | Dedicated Kubernetes observability cluster |
+|---|---|---|
+| Prometheus metrics and Grafana dashboard | Implemented and verified | Implemented and verified |
+| OpenTelemetry traces and Tempo | Implemented and verified | Not deployed/verified in this environment |
+| Structured JSON logging, Alloy, and Loki | Implemented and verified | Not deployed/verified in this environment |
+| Grafana Logs-to-Traces correlation | Implemented and verified | Not deployed/verified in this environment |
+| Alertmanager notifications | Not yet verified | Disabled; not yet verified |
+| Argo CD management of observability | Not applicable to local Compose | Not yet implemented |
+
+Do not interpret application-level tracing or logging support as proof that trace or log collection backends are installed in Kubernetes.
+
 ## Current Status
 
 The following components have been installed and verified in the dedicated observability cluster:
@@ -705,11 +725,14 @@ The monitoring stack and application are currently installed through Helm and Ku
 
 The external Grafana administrator Secret configuration has been added to the local Helm values and validated through `helm template`, but has not been applied to the existing cluster.
 
-Future improvements include:
+Future improvements for **this Kubernetes environment** include:
 
-- GitOps integration for observability
-- Distributed tracing with OpenTelemetry
-- Centralized logging
-- Alerting
-- Improved secret management
-- Persistent monitoring storage
+- Manage the Kubernetes observability stack declaratively through GitOps after reviewing cluster-specific synchronization and secret-handling requirements.
+- Deploy and verify OpenTelemetry trace collection and Grafana Tempo in Kubernetes.
+- Deploy and verify centralized Kubernetes log collection using Grafana Alloy and Loki.
+- Verify Grafana Logs-to-Traces correlation for Kubernetes workloads.
+- Introduce Prometheus alerting rules, enable and configure Alertmanager, and test notification delivery.
+- Improve secret management and credential rotation.
+- Add persistent monitoring storage and operational recovery procedures.
+
+**Verification note:** The statuses above reflect the documented implementation and earlier local verification. They do not assert that the cluster is currently running or that its live Helm values match this file. Inspect the target context and installed release before any changes.
