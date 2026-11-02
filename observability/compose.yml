@@ -61,10 +61,36 @@ services:
       - tempo_data:/var/tempo
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.5.5
+    container_name: platformforge-loki
+    command:
+      - -config.file=/etc/loki/config.yaml
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.10.2
+    container_name: platformforge-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
 volumes:
   prometheus_data:
   grafana_data:
   tempo_data:
+  loki_data:
 
 networks:
   platformforge:

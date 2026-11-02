@@ -23,6 +23,8 @@ def test_create_app_disables_tracing_by_default() -> None:
         otel_tracing_enabled=False,
         otel_service_name="platformforge-api",
         otel_exporter_otlp_endpoint="http://localhost:4318",
+        log_level="INFO",
+        log_format="json",
     )
 
     with (
@@ -44,6 +46,8 @@ def test_create_app_enables_tracing_when_configured(sqlalchemy_lifespan_mocks) -
         otel_tracing_enabled=True,
         otel_service_name="platformforge-api-test",
         otel_exporter_otlp_endpoint="http://localhost:4318",
+        log_level="INFO",
+        log_format="json",
     )
 
     mock_provider = Mock()
@@ -79,6 +83,8 @@ def test_lifespan_shuts_down_tracer_provider() -> None:
         otel_tracing_enabled=True,
         otel_service_name="platformforge-api-test",
         otel_exporter_otlp_endpoint="http://localhost:4318",
+        log_level="INFO",
+        log_format="json",
     )
 
     mock_provider = Mock()
@@ -108,6 +114,8 @@ def test_create_app_uses_independent_tracer_providers(sqlalchemy_lifespan_mocks)
         otel_tracing_enabled=True,
         otel_service_name="platformforge-api-test",
         otel_exporter_otlp_endpoint="http://localhost:4318",
+        log_level="INFO",
+        log_format="json",
     )
 
     provider_1 = Mock()

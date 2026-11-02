@@ -8,6 +8,8 @@ from app.observability.tracing import (
     uninstrument_sqlalchemy,
 )
 
+from app.observability.logging import configure_logging
+from app.observability.request_logging import RequestLoggingMiddleware
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -85,6 +87,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     settings = get_settings()
 
+    configure_logging(
+        level=settings.log_level,
+        log_format=settings.log_format,
+        service_name=settings.otel_service_name,
+    )
+
     application = FastAPI(
         title="PlatformForge API",
         description="Internal Developer Platform built with Python and FastAPI",
@@ -93,6 +101,7 @@ def create_app() -> FastAPI:
     )
 
     application.add_middleware(PrometheusMetricsMiddleware)
+    application.add_middleware(RequestLoggingMiddleware)
 
     if settings.otel_tracing_enabled:
         tracer_provider = create_tracer_provider(

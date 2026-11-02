@@ -9,6 +9,10 @@ class Settings(BaseSettings):
 
     environment: str = "development"
 
+    # Logging
+    log_level: str = "INFO"
+    log_format: str = "json"
+
     database_url: str = Field(
         min_length=1,
         pattern=r"^postgresql\+psycopg://",
