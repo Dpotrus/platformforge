@@ -5,6 +5,8 @@ This directory contains the local observability environment for PlatformForge.
 It provides:
 
 - **Prometheus** for application metrics collection.
+- **Prometheus Alerting** for evaluating application alert rules.
+- **Alertmanager** for routing notifications to a local webhook receiver.
 - **OpenTelemetry Collector** for receiving and processing distributed traces.
 - **Grafana Tempo** for storing and querying distributed traces.
 - **Grafana Alloy** for collecting application container logs.
@@ -153,14 +155,23 @@ The main application stack should be started before the observability stack when
 observability/
 ├── README.md
 ├── compose.yml
+├── alertmanager/
+│   └── alertmanager.yml
 ├── alloy/
 │   └── config.alloy
 ├── collector/
 │   └── config.yaml
+├── prometheus/
+│   ├── prometheus.yml
+│   ├── rules/
+│   │   └── platformforge-alerts.yml
+│   └── tests/
+│       └── platformforge-alerts.test.yml
 ├── tempo/
 │   └── config.yaml
-├── prometheus/
-│   └── prometheus.yml
+├── webhook-receiver/
+│   ├── Dockerfile
+│   └── server.py
 └── grafana/
     └── provisioning/
         ├── datasources/
@@ -228,7 +239,7 @@ Starting the main stack also ensures that the `platformforge_default` Docker net
 
 ## 2. Start the Observability Environment
 
-Start Prometheus, Grafana, OpenTelemetry Collector, Tempo, Loki, and Alloy:
+Start Prometheus, Alertmanager, the webhook receiver, Grafana, OpenTelemetry Collector, Tempo, Loki, and Alloy:
 
 ```powershell
 docker compose -f .\observability\compose.yml up -d
@@ -245,6 +256,8 @@ The following services should be running:
 | Service | Local port | Purpose |
 |---|---|---|
 | Prometheus | 9090 | Metrics collection and queries |
+| Alertmanager | 9093 (localhost only) | Alert routing and notification management |
+| Webhook receiver | Internal Compose networking | Receives and logs Alertmanager notifications |
 | Grafana | 3000 | Metrics dashboards and trace exploration |
 | OpenTelemetry Collector | 4317 | OTLP gRPC receiver |
 | OpenTelemetry Collector | 4318 | OTLP HTTP receiver |
@@ -253,7 +266,7 @@ The following services should be running:
 | Grafana Loki | Internal Compose networking | Log storage and querying |
 | Grafana Alloy | Docker integration | Container log collection |
 
-The OpenTelemetry Collector, Tempo, Loki, and Alloy run separately from the PlatformForge API.
+Alertmanager, the webhook receiver, OpenTelemetry Collector, Tempo, Loki, and Alloy run separately from the PlatformForge API.
 
 Alloy requires access to Docker container metadata and logs. Review its Docker permissions before reusing this configuration outside a trusted local development environment.
 
@@ -659,6 +672,113 @@ docker compose -f .\observability\compose.yml logs --tail 100 loki
 
 This end-to-end correlation has been verified in the local environment. A log without an active trace context may not contain a usable trace identifier.
 
+## Prometheus Alerting and Alertmanager
+
+PlatformForge uses Prometheus alerting rules and Alertmanager for local alert notifications.
+
+The alerting pipeline is:
+
+```text
+PlatformForge API
+       |
+       | /metrics
+       v
+   Prometheus
+       |
+       | Alert evaluation
+       v
+   Alertmanager
+       |
+       | HTTP webhook
+       v
+ webhook-receiver
+       |
+       v
+   Docker logs
+```
+
+Prometheus evaluates alerting rules and forwards firing and resolved alerts to Alertmanager.
+
+Alertmanager groups notifications and sends them to a local Docker-based webhook receiver.
+
+The webhook receiver logs incoming notifications to standard output.
+
+### Configuration Files
+
+| File | Purpose |
+|---|---|
+| `observability/prometheus/prometheus.yml` | Prometheus scraping, rule loading and Alertmanager connection |
+| `observability/prometheus/rules/platformforge-alerts.yml` | Prometheus alerting rules |
+| `observability/prometheus/tests/platformforge-alerts.test.yml` | Automated Prometheus alert rule tests |
+| `observability/alertmanager/alertmanager.yml` | Alertmanager routing and webhook configuration |
+| `observability/webhook-receiver/Dockerfile` | Webhook receiver container image |
+| `observability/webhook-receiver/server.py` | HTTP webhook receiver |
+
+### High HTTP Error Rate Alert
+
+The `PlatformAPIHighErrorRate` alert monitors HTTP 5xx responses.
+
+The alert becomes active when:
+
+- More than 5% of HTTP requests return 5xx responses over five minutes.
+- At least 10 HTTP requests have occurred during the same period.
+- The condition remains true for two minutes.
+
+The alert has severity `warning`.
+
+### Verify Alertmanager
+
+Check that the services are running:
+
+```powershell
+docker compose -f .\observability\compose.yml ps
+```
+
+Verify Alertmanager readiness:
+
+```powershell
+Invoke-WebRequest http://localhost:9093/-/ready
+```
+
+Inspect webhook notifications:
+
+```powershell
+docker compose -f .\observability\compose.yml logs --tail 100 webhook-receiver
+```
+
+### View Alerts in Grafana
+
+Open Grafana at `http://localhost:3000`.
+
+Navigate to:
+
+**Alerting → Alert rules**
+
+The `PlatformAPIHighErrorRate` rule appears under **Data source-managed**.
+
+Prometheus evaluates the alerting rule, while Grafana displays its state and configuration.
+
+Grafana-managed alert rules are not required for the current implementation.
+
+### Automated Validation
+
+GitLab CI validates the alerting configuration using two jobs:
+
+- `prometheus-validation` validates Prometheus configuration and executes alert rule tests using `promtool`.
+- `alertmanager-validation` validates Alertmanager configuration using `amtool`.
+
+The alerting pipeline has also been verified locally by triggering test notifications and confirming that the webhook receiver receives both `firing` and `resolved` notifications.
+
+Temporary test alert rules are not part of the committed configuration.
+
+### Scope
+
+This alerting implementation is intended for local development and learning.
+
+The webhook receiver is a local test component and is not intended for production use.
+
+The separate Kubernetes observability environment does not automatically inherit this Docker Compose alerting configuration.
+
 ## 9. Tracing Lifecycle
 
 PlatformForge manages tracing through the FastAPI application lifecycle.
@@ -801,6 +921,42 @@ Avoid removing PostgreSQL volumes unless intentionally resetting the local datab
 
 ## Troubleshooting
 
+### Alertmanager Notifications Are Missing
+
+Verify that Alertmanager and the webhook receiver are running:
+
+```powershell
+docker compose -f .\observability\compose.yml ps
+```
+
+Check Alertmanager logs:
+
+```powershell
+docker compose -f .\observability\compose.yml logs --tail 100 alertmanager
+```
+
+Check webhook receiver logs:
+
+```powershell
+docker compose -f .\observability\compose.yml logs --tail 100 webhook-receiver
+```
+
+Verify that Prometheus can discover Alertmanager:
+
+```powershell
+Invoke-RestMethod http://localhost:9090/api/v1/alertmanagers
+```
+
+Verify that Alertmanager is ready:
+
+```powershell
+Invoke-WebRequest http://localhost:9093/-/ready
+```
+
+If notifications are missing, verify that the Alertmanager configuration points to `http://webhook-receiver:8080/alerts`.
+
+The webhook receiver is accessible through the internal Docker Compose network and does not expose a host port.
+
 ### Prometheus Target Is DOWN
 
 Verify that the PlatformForge API is running:
@@ -925,6 +1081,7 @@ The local environment uses:
 | PlatformForge API | 8000 |
 | PostgreSQL | 5432 |
 | Prometheus | 9090 |
+| Alertmanager | 9093 (localhost only) |
 | Grafana | 3000 |
 | OpenTelemetry Collector gRPC | 4317 |
 | OpenTelemetry Collector HTTP | 4318 |
@@ -980,6 +1137,17 @@ The following functionality has been implemented and verified:
 - Grafana Logs-to-Traces navigation into Tempo.
 - End-to-end verification in the local Docker Compose environment.
 
+### Alerting
+
+- Prometheus alerting rules for HTTP 5xx error rates.
+- Minimum traffic threshold to reduce false positives.
+- Automated Prometheus rule tests using promtool.
+- Alertmanager integration with Prometheus.
+- Docker-based webhook receiver.
+- Verified firing and resolved notifications.
+- Prometheus alert rules visible in Grafana.
+- Automated Alertmanager configuration validation in GitLab CI.
+
 ### Verification
 
 The completed implementation has been verified through:
@@ -999,7 +1167,6 @@ Potential future improvements include:
 
 - Distributed tracing in Kubernetes.
 - Centralized logging and tracing in the Kubernetes observability environment.
-- Prometheus alerting rules and Alertmanager integration.
 - Explicit trace retention policies.
 - More advanced Collector monitoring.
 - Production-oriented resource limits and healthchecks.
