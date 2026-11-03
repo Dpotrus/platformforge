@@ -1,0 +1,101 @@
+rule_files:
+  - ../rules/platformforge-alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: no-alert-when-all-requests-succeed
+    interval: 15s
+
+    input_series:
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="200"}'
+        values: '0+1x40'
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts: []
+
+  - name: alert-fires-when-http-5xx-error-rate-is-high
+    interval: 15s
+
+    input_series:
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="200"}'
+        values: '0+9x40'
+
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="500"}'
+        values: '0+1x40'
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: platform-api
+            exp_annotations:
+              summary: "Platform API has a high HTTP 5xx error rate"
+              description: "More than 5% of HTTP requests returned 5xx responses over the last five minutes, with at least 10 requests observed."
+
+  - name: no-alert-when-traffic-is-too-low
+    interval: 15s
+
+    input_series:
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="200"}'
+        values: '0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3 4 4 4 4 4 5 5 5 5 5 6 6 6 6 6 7 7 7 7 7 8'
+
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="500"}'
+        values: '0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3 4 4 4 4 4 5 5 5 5 5 6 6 6 6 6 7 7 7 7 7 8'
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts: [ ]
+
+      - eval_time: 8m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts: [ ]
+
+  - name: no-alert-at-exactly-five-percent-error-rate
+    interval: 15s
+
+    input_series:
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="200"}'
+        values: '0+19x40'
+
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="500"}'
+        values: '0+1x40'
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts: [ ]
+
+      - eval_time: 8m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts: [ ]
+
+  - name: alert-respects-two-minute-for-duration
+    interval: 15s
+
+    input_series:
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="200"}'
+        values: '0+9x40'
+
+      - series: 'platformforge_http_requests_total{method="GET",route="/health",status_code="500"}'
+        values: '0+1x40'
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts: [ ]
+
+      - eval_time: 3m
+        alertname: PlatformAPIHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: platform-api
+            exp_annotations:
+              summary: "Platform API has a high HTTP 5xx error rate"
+              description: "More than 5% of HTTP requests returned 5xx responses over the last five minutes, with at least 10 requests observed."

@@ -93,6 +93,29 @@ helm-lint:
     - test -s /tmp/platform-api-rendered.yaml
     - echo "Helm chart validation completed"
 
+prometheus-validation:
+  stage: test
+  image:
+    name: prom/prometheus:v3.5.0
+    entrypoint: [""]
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+  script:
+    - echo "Preparing Prometheus configuration"
+    - mkdir -p /etc/prometheus/rules
+    - cp observability/prometheus/rules/*.yml /etc/prometheus/rules/
+    - echo "Validating Prometheus alerting rules"
+    - promtool check rules /etc/prometheus/rules/platformforge-alerts.yml
+    - echo "Validating Prometheus configuration"
+    - promtool check config observability/prometheus/prometheus.yml
+    - echo "Running Prometheus alerting rule tests"
+    - cd observability/prometheus/tests
+    - promtool test rules platformforge-alerts.test.yml
+    - echo "Prometheus validation completed"
+
 docker-build:
   stage: build
   image: docker:27-cli
