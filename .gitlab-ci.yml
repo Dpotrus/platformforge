@@ -116,6 +116,21 @@ prometheus-validation:
     - promtool test rules platformforge-alerts.test.yml
     - echo "Prometheus validation completed"
 
+alertmanager-validation:
+  stage: test
+  image:
+    name: prom/alertmanager:v0.28.1
+    entrypoint: [""]
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+  script:
+    - echo "Validating Alertmanager configuration"
+    - amtool check-config observability/alertmanager/alertmanager.yml
+    - echo "Alertmanager validation completed"
+
 docker-build:
   stage: build
   image: docker:27-cli
