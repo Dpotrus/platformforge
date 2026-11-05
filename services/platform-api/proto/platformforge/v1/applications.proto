@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package platformforge.v1;
+
+service ApplicationService {
+  rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse);
+  rpc CreateApplication(CreateApplicationRequest) returns (ApplicationResponse);
+}
+
+message ListApplicationsRequest {
+}
+
+message ListApplicationsResponse {
+  repeated ApplicationResponse applications = 1;
+}
+
+message CreateApplicationRequest {
+  string name = 1;
+  string repository_url = 2;
+}
+
+message ApplicationResponse {
+  string id = 1;
+  string name = 2;
+  string repository_url = 3;
+  ApplicationStatus status = 4;
+}
+
+enum ApplicationStatus {
+  APPLICATION_STATUS_UNSPECIFIED = 0;
+  APPLICATION_STATUS_REGISTERED = 1;
+  APPLICATION_STATUS_DEPLOYED = 2;
+  APPLICATION_STATUS_FAILED = 3;
+}
