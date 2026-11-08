@@ -20,6 +20,8 @@ from app.observability.tracing import (
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.instrumentation.grpc import server_interceptor
 
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
+
 
 def create_grpc_server(
         session_factory: sessionmaker[Session],
@@ -44,6 +46,23 @@ def create_grpc_server(
             session_factory=session_factory,
         ),
         server,
+    )
+
+    health_servicer = health.HealthServicer()
+
+    health_pb2_grpc.add_HealthServicer_to_server(
+        health_servicer,
+        server,
+    )
+
+    health_servicer.set(
+        "",
+        health_pb2.HealthCheckResponse.SERVING,
+    )
+
+    health_servicer.set(
+        "platformforge.v1.ApplicationService",
+        health_pb2.HealthCheckResponse.SERVING,
     )
 
     return server

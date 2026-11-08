@@ -5,6 +5,9 @@ from unittest.mock import Mock, patch, call
 from app.grpc.server import create_grpc_server, run_grpc_server
 import pytest
 
+import grpc
+from grpc_health.v1 import health_pb2, health_pb2_grpc
+
 
 @pytest.fixture(autouse=True)
 def mock_sqlalchemy_ownership() -> Iterator[None]:
@@ -758,3 +761,28 @@ def test_create_grpc_server_without_tracing_interceptor() -> None:
 
     executor = mock_grpc_server.call_args.args[0]
     executor.shutdown(wait=True)
+
+
+
+def test_grpc_health_check_reports_serving():
+    from app.grpc.server import create_grpc_server
+
+    server = create_grpc_server(session_factory=None)
+    port = server.add_insecure_port("127.0.0.1:0")
+
+    try:
+        server.start()
+
+        with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
+            stub = health_pb2_grpc.HealthStub(channel)
+
+            for service in ("", "platformforge.v1.ApplicationService"):
+                response = stub.Check(
+                    health_pb2.HealthCheckRequest(service=service),
+                    timeout=5,
+                )
+
+                assert response.status == health_pb2.HealthCheckResponse.SERVING
+
+    finally:
+        server.stop(grace=0).wait()

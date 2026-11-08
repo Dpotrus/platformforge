@@ -59,5 +59,47 @@ services:
       retries: 3
       start_period: 15s
 
+  grpc:
+    build:
+      context: ./services/platform-api
+      dockerfile: Dockerfile
+
+    image: platformforge-api:dev
+    container_name: platformforge-grpc
+    restart: unless-stopped
+
+    command:
+      - python
+      - -m
+      - app.grpc.server
+
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      GRPC_HOST: "0.0.0.0"
+      GRPC_PORT: "50051"
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_GRPC_SERVICE_NAME: platformforge-grpc
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+
+    ports:
+      - "127.0.0.1:50051:50051"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('127.0.0.1:50051'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(service='platformforge.v1.ApplicationService'), timeout=3); assert response.status == health_pb2.HealthCheckResponse.SERVING; channel.close()"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+
 volumes:
   postgres_data:
