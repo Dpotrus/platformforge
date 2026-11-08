@@ -9,6 +9,10 @@ class Settings(BaseSettings):
 
     environment: str = "development"
 
+    # gRPC server
+    grpc_host: str = "127.0.0.1"
+    grpc_port: int = Field(default=50051, ge=1, le=65535)
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"
@@ -21,6 +25,7 @@ class Settings(BaseSettings):
     # OpenTelemetry tracing
     otel_tracing_enabled: bool = False
     otel_service_name: str = "platformforge-api"
+    otel_grpc_service_name: str = "platformforge-grpc"
     otel_exporter_otlp_endpoint: str = "http://localhost:4318"
 
     model_config = SettingsConfigDict(
