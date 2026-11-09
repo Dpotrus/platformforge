@@ -91,6 +91,12 @@ helm-lint:
     - echo "Rendering Kubernetes manifests"
     - helm template platform-api infrastructure/helm/platform-api --namespace platformforge -f infrastructure/helm/platform-api/values-kind.yaml > /tmp/platform-api-rendered.yaml
     - test -s /tmp/platform-api-rendered.yaml
+    - echo "Rendering Helm chart with gRPC enabled"
+    - helm template platform-api infrastructure/helm/platform-api --namespace platformforge -f infrastructure/helm/platform-api/values-kind.yaml --set grpc.enabled=true > /tmp/platform-api-grpc-rendered.yaml
+    - test -s /tmp/platform-api-grpc-rendered.yaml
+    - |
+      grep -q 'name: platform-grpc' /tmp/platform-api-grpc-rendered.yaml
+      test "$(grep -c '^  name: platform-grpc$' /tmp/platform-api-grpc-rendered.yaml)" -eq 2
     - echo "Helm chart validation completed"
 
 prometheus-validation:

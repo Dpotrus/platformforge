@@ -60,3 +60,9 @@ serviceMonitor:
   interval: 15s
   scrapeTimeout: 10s
   path: /metrics
+
+# gRPC server
+grpc:
+  enabled: false
+  replicaCount: 1
+  port: 50051

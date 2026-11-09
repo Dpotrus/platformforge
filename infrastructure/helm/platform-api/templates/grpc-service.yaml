@@ -1,0 +1,23 @@
+{{- if .Values.grpc.enabled }}
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: platform-grpc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: platform-grpc
+    app.kubernetes.io/part-of: platformforge
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: platform-grpc
+
+  ports:
+    - name: grpc
+      port: {{ .Values.grpc.port }}
+      targetPort: grpc
+      protocol: TCP
+  {{- end }}

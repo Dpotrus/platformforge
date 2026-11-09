@@ -1,0 +1,80 @@
+{{- if .Values.grpc.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: platform-grpc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: platform-grpc
+    app.kubernetes.io/part-of: platformforge
+
+spec:
+  replicas: {{ .Values.grpc.replicaCount }}
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-grpc
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-grpc
+        app.kubernetes.io/part-of: platformforge
+
+    spec:
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+
+      containers:
+        - name: platform-grpc
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          command:
+            - python
+            - -m
+            - app.grpc.server
+
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.grpc.port }}
+              protocol: TCP
+
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.secretKey }}
+
+            - name: GRPC_HOST
+              value: "0.0.0.0"
+
+            - name: GRPC_PORT
+              value: {{ .Values.grpc.port | quote }}
+
+          startupProbe:
+            grpc:
+              port: {{ .Values.grpc.port }}
+            periodSeconds: 5
+            failureThreshold: 12
+
+          readinessProbe:
+            grpc:
+              port: {{ .Values.grpc.port }}
+            periodSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            grpc:
+              port: {{ .Values.grpc.port }}
+            periodSeconds: 10
+            failureThreshold: 3
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+  {{- end }}
